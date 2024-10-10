@@ -560,10 +560,6 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     } else {
 
-      new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
-
-      if (unlikely(new_bits)) { classified = 1; }
-
       if (afl->k_mode){
 
         u8 *virgin_map = afl->virgin_bits;
@@ -575,7 +571,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         if (skim((u64 *)afl->queue_cur->ancestor_seed->virgin_bits, (u64 *)afl->fsrv.trace_bits, (u64 *)end)){
           classify_counts(&afl->fsrv);
           classified = 1;
-          new_bits = has_new_bits(afl, virgin_map);
+          new_bits = has_new_bits_kmode(afl, virgin_map);
         }
 
 #else
@@ -583,11 +579,15 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
         if (skim((u32 *)afl->queue_cur->ancestor_seed->virgin_bits, (u32 *)afl->fsrv.trace_bits, (u32 *)end)){
           classify_counts(&afl->fsrv);
           classified = 1;
-          new_bits = has_new_bits(afl, virgin_map);
+          new_bits = has_new_bits_kmode(afl, virgin_map);
         }
 
 #endif                                                     /* ^WORD_SIZE_64 */
 
+      }else{
+        new_bits = has_new_bits_unclassified(afl, afl->virgin_bits);
+
+        if (unlikely(new_bits)) { classified = 1; }
       }
 
     }
