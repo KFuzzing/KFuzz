@@ -2579,7 +2579,6 @@ int main(int argc, char **argv_orig, char **envp) {
   afl->start_time = get_cur_time();
 
   srand(time(NULL));
-  afl->k_mode = 1; // default setting: Using k_mode
 
   while (likely(!afl->stop_soon)) {
 
