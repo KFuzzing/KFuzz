@@ -556,7 +556,11 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
 
     if (likely(classified)) {
 
-      new_bits = has_new_bits(afl, afl->virgin_bits);
+      if (afl->k_mode){
+        new_bits = has_new_bits_kmode(afl, afl->virgin_bits);
+      }else{
+        new_bits = has_new_bits(afl, afl->virgin_bits);
+      }
 
     } else {
 
@@ -601,7 +605,7 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
       // iterate all seed nodes within the queue
       for (u32 idx = 0; idx < afl->queued_items; idx++) {
         struct queue_entry *q = afl->queue_buf[idx];
-        if (q){
+        if (q && q->from_local == 0){
           // It is possible that you can not find any seeds passing the same path because AFL++ only rely on the pass time of an edge instead of using path hash value
           if(q->exec_cksum == cksum_local){
             if(q->otherNum < 50){
@@ -609,8 +613,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
               u8 *queue_fn_local = "";
               queue_fn_local = alloc_printf(
                 "%s/queue/local_%llu,src:%06u,samePathSeed:%u,subidx:%u", afl->out_dir, afl->totalOtherFnameNum, afl->current_entry, idx, q->otherNum);
-              // printf("-> %s\n", queue_fn_local);
-              // printf("-> samePath source: %s\n\n", q->fname);
+              printf("-> %s\n", queue_fn_local);
+              printf("-> samePath source: %s\n\n", q->fname);
               fd = permissive_create(afl, queue_fn_local);
               if (likely(fd >= 0)) {
                 ck_write(fd, mem, len, queue_fn_local);

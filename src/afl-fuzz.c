@@ -2912,28 +2912,31 @@ int main(int argc, char **argv_orig, char **envp) {
               afl->current_entry = candidates[index];
             }
           }
-        }else{
-          // Step I: we need to filter out the normal seeds
-          int candidates[100000];
-          int candidates_num = 0;
-          for (u32 idx = 0; idx < afl->queued_items; idx++) {
-            struct queue_entry *q = afl->queue_buf[idx];
-            // if (q->ancestor_seed == q && q->first_havoc && !q->was_fuzzed){
-            if (q->from_local == 0){
-              candidates[candidates_num] = idx;
-              candidates_num += 1;
-            }
-          }
 
-          if (candidates_num == 0){ //randomly select a seed
-            int index = rand() % afl->queued_items;
-            afl->queue_cur = afl->queue_buf[index];
-            afl->current_entry = index;
-          }else{
-            int index = rand() % candidates_num;
-            afl->queue_cur = afl->queue_buf[candidates[index]];
-            afl->current_entry = candidates[index];
-          }
+          // printf("=> selected seed: %s\n", afl->queue_cur->fname);
+        }else{
+          // printf("=> selected seed: %s\n", afl->queue_cur->fname);
+          // Step I: we need to filter out the normal seeds
+          // int candidates[100000];
+          // int candidates_num = 0;
+          // for (u32 idx = 0; idx < afl->queued_items; idx++) {
+          //   struct queue_entry *q = afl->queue_buf[idx];
+          //   // if (q->ancestor_seed == q && q->first_havoc && !q->was_fuzzed){
+          //   if (q->from_local == 0){
+          //     candidates[candidates_num] = idx;
+          //     candidates_num += 1;
+          //   }
+          // }
+
+          // if (candidates_num == 0){ //randomly select a seed
+          //   int index = rand() % afl->queued_items;
+          //   afl->queue_cur = afl->queue_buf[index];
+          //   afl->current_entry = index;
+          // }else{
+          //   int index = rand() % candidates_num;
+          //   afl->queue_cur = afl->queue_buf[candidates[index]];
+          //   afl->current_entry = candidates[index];
+          // }
 
           // Step II: Based on the selected non-local seed, we randomly select a seed with the same path
           int candidates_samePath[100000];
@@ -2963,6 +2966,8 @@ int main(int argc, char **argv_orig, char **envp) {
               }
             }
           }
+
+          // printf("~> replaced seed: %s\n", afl->queue_cur->fname);
         }
       }
       
