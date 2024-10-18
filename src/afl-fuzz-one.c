@@ -5782,6 +5782,9 @@ pacemaker_fuzzing:
 
            ++afl->stage_cur) { */
 
+      if (afl->k_mode)
+        afl->queue_cur->first_havoc = 0;
+
       new_hit_cnt = afl->queued_items + afl->saved_crashes;
 
       if (MOpt_globals.is_pilot_mode) {

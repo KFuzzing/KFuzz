@@ -2913,63 +2913,10 @@ int main(int argc, char **argv_orig, char **envp) {
             }
           }
 
-          // printf("=> selected seed: %s\n", afl->queue_cur->fname);
-        }else{
-          // printf("=> selected seed: %s\n", afl->queue_cur->fname);
-          // Step I: we need to filter out the normal seeds
-          // int candidates[100000];
-          // int candidates_num = 0;
-          // for (u32 idx = 0; idx < afl->queued_items; idx++) {
-          //   struct queue_entry *q = afl->queue_buf[idx];
-          //   // if (q->ancestor_seed == q && q->first_havoc && !q->was_fuzzed){
-          //   if (q->from_local == 0){
-          //     candidates[candidates_num] = idx;
-          //     candidates_num += 1;
-          //   }
-          // }
-
-          // if (candidates_num == 0){ //randomly select a seed
-          //   int index = rand() % afl->queued_items;
-          //   afl->queue_cur = afl->queue_buf[index];
-          //   afl->current_entry = index;
-          // }else{
-          //   int index = rand() % candidates_num;
-          //   afl->queue_cur = afl->queue_buf[candidates[index]];
-          //   afl->current_entry = candidates[index];
-          // }
-
-          // Step II: Based on the selected non-local seed, we randomly select a seed with the same path
-          int candidates_samePath[100000];
-          int candidates_samePath_num = 0;
-          for (u32 idx = 0; idx < afl->queued_items; idx++) {
-            struct queue_entry *q = afl->queue_buf[idx];
-            // if (q->ancestor_seed == q && q->first_havoc && !q->was_fuzzed){
-            if (q->exec_cksum == afl->queue_cur->exec_cksum){
-              candidates_samePath[candidates_samePath_num] = idx;
-              candidates_samePath_num += 1;
-            }
-          }
-
-          if (candidates_samePath_num == 0){ //randomly select a seed
-            // do nothing
-            // continue fuzz the afl->current_entry
-          }else{
-            struct queue_entry *q = afl->queue_cur;
-            if (q->otherNum){
-              int index = rand() % (q->otherNum + 1);
-              if (index == 0){
-                // nothing happen
-                // continue fuzz the afl->current_entry
-              }else{
-                afl->queue_cur = afl->queue_buf[q->otherNodes[index-1]];
-                afl->current_entry = q->otherNodes[index-1];
-              }
-            }
-          }
-
-          // printf("~> replaced seed: %s\n", afl->queue_cur->fname);
+          
         }
       }
+      // printf("=> selected seed: %s\n", afl->queue_cur->fname);
       
 
       
