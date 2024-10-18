@@ -613,8 +613,8 @@ save_if_interesting(afl_state_t *afl, void *mem, u32 len, u8 fault) {
               u8 *queue_fn_local = "";
               queue_fn_local = alloc_printf(
                 "%s/queue/local_%llu,src:%06u,samePathSeed:%u,subidx:%u", afl->out_dir, afl->totalOtherFnameNum, afl->current_entry, idx, q->otherNum);
-              printf("-> %s\n", queue_fn_local);
-              printf("-> samePath source: %s\n\n", q->fname);
+              // printf("-> %s\n", queue_fn_local);
+              // printf("-> samePath source: %s\n\n", q->fname);
               fd = permissive_create(afl, queue_fn_local);
               if (likely(fd >= 0)) {
                 ck_write(fd, mem, len, queue_fn_local);
