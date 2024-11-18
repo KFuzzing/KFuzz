@@ -167,7 +167,18 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->exec_all = 1;
   afl->found_all = 0;
 
-  afl->k_mode_start = 0;
+  afl->local_finds = 0;
+
+  afl->normal_queue_exec = 1;
+  afl->normal_queue_found = 1;
+  afl->select_normal_queue = 1;
+
+  afl->cur_bitmap_size = 1;
+
+  afl->k_mode_start = 0; 
+
+  afl->pre_record_time = 0;
+  afl->record_flag = 0;
 
 }
 

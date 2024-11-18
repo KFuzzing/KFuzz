@@ -289,6 +289,11 @@ struct queue_entry {
 
   u64 found;
   u64 exec;
+
+  u64 found_family;
+  u64 exec_family;
+
+  bool disabled_raw;
 };
 
 struct extra_data {
@@ -924,7 +929,21 @@ typedef struct afl_state {
 
   u8 from_splicing;
 
-  u8 k_mode_start;
+  u8 local_finds;
+
+  u8 select_normal_queue;
+  u64 normal_queue_found;
+  u64 normal_queue_exec;
+
+  u8 pre_select_normal_queue;
+  struct queue_entry *pre_target_q;
+
+  u32 cur_bitmap_size;
+  
+  u8 k_mode_start; 
+
+  u64 pre_record_time;
+  u8 record_flag;
 
 } afl_state_t;
 

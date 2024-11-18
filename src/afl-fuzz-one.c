@@ -2148,18 +2148,17 @@ havoc_stage:
 
   for (afl->stage_cur = 0; afl->stage_cur < afl->stage_max; ++afl->stage_cur) {
 
-    if (afl->k_mode && afl->k_mode_start){
-      if (afl->stage_cur % 10 == 0){
-        double cur = (double)afl->queue_cur->found / (double)afl->queue_cur->exec;
-        double average = (double)afl->found_all / (double)afl->exec_all;
-        // printf("from_splicing:%u %u/%u -> cur:%lf average:%lf\n", afl->from_splicing, afl->stage_cur, afl->stage_max, cur, average);
+    // if (afl->stage_cur % 10 == 0){
+    //   double cur = (double)afl->queue_cur->found / (double)afl->queue_cur->exec;
+    //   double average = (double)afl->found_all / (double)afl->exec_all;
+    //   // printf("from_splicing:%u %u/%u -> cur:%lf average:%lf\n", afl->from_splicing, afl->stage_cur, afl->stage_max, cur, average);
 
-        if(cur < average * 0.75 ){
-          // printf("SKIP\n");
-          break;
-        }
-      }
-    }
+    //   if(cur < average ){
+    //     // printf("SKIP\n");
+    //     break;
+    //   }
+    // }
+
 
     u32 use_stacking = 1 + rand_below(afl, stack_max);
 
@@ -3307,11 +3306,22 @@ havoc_stage:
 
     afl->queue_cur->exec++;
     afl->exec_all++;
+    if (afl->select_normal_queue == 1){
+      afl->normal_queue_exec++;
+    }else{
+      afl->queue_cur->ancestor_seed->exec_family++;
+    }
 
     if (afl->queued_items != havoc_queued && afl->find_new_type) {
       afl->queue_cur->found++;
       afl->found_all++;
       afl->find_new_type = 0;
+
+      if (afl->select_normal_queue == 1){
+        afl->normal_queue_found++;
+      }else{
+        afl->queue_cur->ancestor_seed->found_family++;
+      }
 
       if (perf_score <= afl->havoc_max_mult * 100) {
 

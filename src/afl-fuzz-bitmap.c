@@ -560,7 +560,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     if (likely(classified)) {
 
-      if (afl->k_mode && afl->k_mode_start){
+      if (afl->k_mode){
         new_bits = has_new_bits_kmode(afl, afl->virgin_bits);
       }else{
         new_bits = has_new_bits(afl, afl->virgin_bits);
@@ -568,7 +568,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     } else {
 
-      if (afl->k_mode && afl->k_mode_start){
+      if (afl->k_mode){
 
         u8 *virgin_map = afl->virgin_bits;
         u8 *end = afl->fsrv.trace_bits + afl->fsrv.map_size;
@@ -602,10 +602,12 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     if (unlikely(new_bits)) afl->find_new_type = 1;
 
-    if(afl->k_mode && afl->k_mode_start && !new_bits && afl->new_edges_found_idx){
+    afl->local_finds = 0;
+    if(afl->k_mode && !new_bits && afl->new_edges_found_idx){
       new_bits = 1;
-      afl->new_edges_found_idx = 0;
+      afl->local_finds = 1;
     }
+    afl->new_edges_found_idx = 0;
 
     if (likely(!new_bits)) {
 
@@ -653,7 +655,7 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
 
     }
 
-    add_to_queue(afl, queue_fn, len, 0, 0);
+    add_to_queue(afl, queue_fn, len, 0, afl->local_finds);
     if (afl->add_new_seeds == 0) afl->add_new_seeds = 1;
 
     if (unlikely(afl->fuzz_mode) &&

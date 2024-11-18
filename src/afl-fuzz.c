@@ -3085,69 +3085,234 @@ int main(int argc, char **argv_orig, char **envp) {
     ++runs_in_current_cycle;
 
     do {
-      
+      if (afl->k_mode && afl->queued_items < 2){
+        WARNF("As the number of initial seeds less than 2, we can not use k_mode\n");
+        afl->k_mode = 0; // if there are less than 2 seeds, we could not use k_mode
+      }
+
       if (afl->k_mode && afl->k_mode_start == 0){
         u64 epoch_flag = afl->queue_cycle ? (afl->queue_cycle - 1) : 0;
         // printf("fuzz_time%llu epoch:%llu pending_not_fuzzed:%u queued_items:%u (double)afl->pending_not_fuzzed/(double)afl->queued_items:%lf\n", get_cur_time() - afl->start_time, epoch_flag, afl->pending_not_fuzzed, afl->queued_items, (double)afl->pending_not_fuzzed/(double)afl->queued_items);
-        if (get_cur_time() - afl->start_time > 60 * 60 * 1000 && epoch_flag >= 1 && (double)afl->pending_not_fuzzed/(double)afl->queued_items < 0.05){
+        // if (get_cur_time() - afl->start_time > 60 * 60 * 1000 && (double)afl->pending_not_fuzzed/(double)afl->queued_items < 0.05){
+        if (get_cur_time() - afl->start_time > 60 * 60 * 1000){
           afl->k_mode_start = 1;
           printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< K_MODE START >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
         }
       }
-      
 
-      if (likely(!afl->old_seed_selection)) {
+      if (afl->k_mode && afl->k_mode_start){
 
-        if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
+        afl->record_flag = 0;
+        u64 cur_time_tmp = get_cur_time();
+        if (cur_time_tmp - afl->pre_record_time > 30 * 60 * 1000){
+          afl->record_flag = 1;
+          afl->pre_record_time = cur_time_tmp;
+        }
 
-          afl->current_entry = afl->smallest_favored;
+        if(afl->add_new_seeds == 1 && afl->epoch_cnt > 0){
+          if (afl->record_flag) printf("\n\n======================== %u ========================\n", afl->epoch_cnt);
+          // printf("epoch_cnt:%u\n", afl->epoch_cnt);
+          /*
+            Get unique cov
+          */
+          u32 max_init_nodes = 10000;
+          struct queue_entry * init_nodes[10000];
+          u32 init_nodes_idx = 0;
+          for (u32 idx = 0; idx < afl->queued_items; idx++) {
+            struct queue_entry *q = afl->queue_buf[idx];
+            if (q->ancestor_seed == q && q->first_havoc == 0){
+              if (init_nodes_idx < max_init_nodes){
+                init_nodes[init_nodes_idx++] = q;
+                q->unique_cov = 1; // reset the unique cov
+              } 
+            }
+          }
+
+          // calculate the unique coverage
+          if (init_nodes_idx){ // You must have initial seeds
+            for (u32 i = 0; i < afl->fsrv.real_map_size; i++) {
+              u8 cnt = 0;
+              struct queue_entry * related_seed = 0;
+              for (u32 idx = 0; idx < init_nodes_idx; idx++) {
+                struct queue_entry *q = init_nodes[idx];
+                if (q->virgin_bits[i] != 0xff){
+                  related_seed = q;
+                  cnt += 1;
+                }
+                if (cnt > 1) {
+                  break;
+                }
+              }
+
+              if (cnt == 1){ // find a unique cov
+                related_seed->unique_cov += 1;
+              }
+            }
+          }
+
+          // show
+          for (u32 idx = 0; idx < afl->queued_items; idx++) {
+            struct queue_entry *q = afl->queue_buf[idx];
+            if (q->ancestor_seed == q && q->first_havoc == 0){
+              if (afl->record_flag) printf("fn:%s unique_cov:%lf\n", q->fname, q->unique_cov);
+            }
+          }
+          if (afl->record_flag) printf("\n");
 
           /*
+            Lable the local seeds in the uninterested families as "disabled = 1"
+          */
+          // for (u32 idx = 0; idx < afl->queued_items; idx++) {
+          //   struct queue_entry *q = afl->queue_buf[idx];
+          //   if (q->from_local == 1){ // we only handle the local new seeds
+          //     if (q->ancestor_seed->unique_cov){
+          //       q->disabled = 0;
+          //     }else{
+          //       // printf("%s\n", q->fname);
+          //       q->disabled = 1;
+          //     }
+          //   }
+          // }
+          // printf("\n");
 
-                    } else {
+          /*
+            Select the seed
+          */
+          // create_alias_table(afl);
 
-                      for (s32 iter = afl->queued_items - 1; iter >= 0; --iter)
-             {
+          afl->cur_bitmap_size = count_non_255_bytes(afl, afl->virgin_bits);
+        }
 
-                        if (unlikely(afl->queue_buf[iter]->favored &&
-                                     !afl->queue_buf[iter]->was_fuzzed)) {
+        // printf("\n\n======================== %u ========================\n", afl->epoch_cnt);
+        u8 update_table = 0;
+        {
+          // cal the perf of normal queue
+          double normal_perf = (double)afl->normal_queue_exec/(double)afl->cur_bitmap_size;
+          if (afl->record_flag) printf("afl->normal_queue_exec:%llu afl->cur_bitmap_size:%u normal_perf:%lf\n", afl->normal_queue_exec, afl->cur_bitmap_size, normal_perf);
+          
+          // cal the perf of each family
+          afl->select_normal_queue = 1;
+          for (u32 idx = 0; idx < afl->queued_items; idx++) {
+            struct queue_entry *q = afl->queue_buf[idx];
+            if (q->ancestor_seed == q && q->first_havoc == 0){
+              if (afl->record_flag) printf("%s -> q->exec_family:%llu q->unique_cov:%f %lf\n", q->fname, q->exec_family, q->unique_cov, (double)q->exec_family/(double)q->unique_cov);
+              if ((double)q->exec_family/(double)q->unique_cov < normal_perf){
+                normal_perf = (double)q->exec_family/(double)q->unique_cov;
+                afl->select_normal_queue = 0;
+                afl->target_q = q;
+              }
+            }
+          }
 
-                          afl->current_entry = iter;
-                          break;
+          if (afl->pre_select_normal_queue == 1 && afl->select_normal_queue == 1) update_table = 0;
+          else if (afl->pre_select_normal_queue == 0 && afl->select_normal_queue == 1) update_table = 1;
+          else if (afl->pre_select_normal_queue == 1 && afl->select_normal_queue == 0) update_table = 1;
+          else if (afl->pre_select_normal_queue == 0 && afl->select_normal_queue == 0){
+            if (afl->target_q == afl->pre_target_q) update_table = 0;
+            else update_table = 1;
+          }
+        }
+        // printf("afl->select_normal_queue:%u\n", afl->select_normal_queue);
+        // if(afl->select_normal_queue == 0) printf("afl->target_q:%s\n", afl->target_q->fname);
+        // printf("update_table:%u afl->add_new_seeds:%u\n", update_table, afl->add_new_seeds);
+        
+        if (update_table || afl->add_new_seeds == 1){
+          // printf("[[update]]\n");
+          if (afl->select_normal_queue){ // normal fuzzing
+            for (u32 idx = 0; idx < afl->queued_items; idx++) {
+              struct queue_entry *q = afl->queue_buf[idx];
+              if (q->from_local == 0){ // we only handle the non-local new seeds
+                q->disabled = q->disabled_raw;
+                // printf("%s -> %u\n", q->fname, q->disabled);
+              }else{
+                q->disabled = 1;
+                // printf("%s -> %u\n", q->fname, q->disabled);
+              }
+            }
+          }else{
+            for (u32 idx = 0; idx < afl->queued_items; idx++) {
+              struct queue_entry *q = afl->queue_buf[idx];
+              if (q->ancestor_seed == afl->target_q){ // we only handle the local new seeds
+                q->disabled = q->disabled_raw;
+                // printf("%s -> %u\n", q->fname, q->disabled);
+              }else{
+                q->disabled = 1;
+                // printf("%s -> %u\n", q->fname, q->disabled);
+              }
+            }
+          }
+          create_alias_table(afl);
+        }
+
+        afl->pre_select_normal_queue = afl->select_normal_queue;
+        if (afl->select_normal_queue == 0) afl->pre_target_q = afl->target_q;
+
+        // if (afl->epoch_cnt > 0){
+        do {
+          afl->current_entry = select_next_queue_entry(afl);
+        } while (unlikely(afl->current_entry >= afl->queued_items));
+        afl->queue_cur = afl->queue_buf[afl->current_entry];
+        // printf("-> selected seed: %s\n", afl->queue_cur->fname);
+      }else{
+        if (likely(!afl->old_seed_selection)) {
+
+          if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
+
+            afl->current_entry = afl->smallest_favored;
+
+            /*
+
+                      } else {
+
+                        for (s32 iter = afl->queued_items - 1; iter >= 0; --iter)
+              {
+
+                          if (unlikely(afl->queue_buf[iter]->favored &&
+                                      !afl->queue_buf[iter]->was_fuzzed)) {
+
+                            afl->current_entry = iter;
+                            break;
+
+                          }
 
                         }
 
-                      }
+            */
 
-          */
+            afl->queue_cur = afl->queue_buf[afl->current_entry];
 
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
+          } else {
 
-        } else {
+            if (unlikely(prev_queued_items < afl->queued_items ||
+                        afl->reinit_table)) {
 
-          if (unlikely(prev_queued_items < afl->queued_items ||
-                       afl->reinit_table)) {
+              // we have new queue entries since the last run, recreate alias
+              // table
+              prev_queued_items = afl->queued_items;
+              create_alias_table(afl);
 
-            // we have new queue entries since the last run, recreate alias
-            // table
-            prev_queued_items = afl->queued_items;
-            create_alias_table(afl);
+            }
+
+            do {
+
+              afl->current_entry = select_next_queue_entry(afl);
+
+            } while (unlikely(afl->current_entry >= afl->queued_items));
+
+            afl->queue_cur = afl->queue_buf[afl->current_entry];
 
           }
 
-          do {
-
-            afl->current_entry = select_next_queue_entry(afl);
-
-          } while (unlikely(afl->current_entry >= afl->queued_items));
-
-          afl->queue_cur = afl->queue_buf[afl->current_entry];
-
         }
-
       }
+      
+
+      afl->epoch_cnt += 1;
+      afl->add_new_seeds = 0;
 
       skipped_fuzz = fuzz_one(afl);
+
+
   #ifdef INTROSPECTION
       ++afl->queue_cur->stats_selected;
 

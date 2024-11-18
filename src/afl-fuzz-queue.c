@@ -493,7 +493,11 @@ void mark_as_redundant(afl_state_t *afl, struct queue_entry *q, u8 state) {
 
     s32 fd;
 
-    if (unlikely(afl->afl_env.afl_disable_redundant)) { q->disabled = 1; }
+    if (unlikely(afl->afl_env.afl_disable_redundant)) {
+      if (q->from_local == 0){
+        q->disabled = 1; q->disabled_raw = 1;
+      }
+    }
     fd = permissive_create(afl, fn);
     if (fd >= 0) { close(fd); }
 
@@ -803,7 +807,13 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det, u8 local)
       }
     }
 
-    if(local == 0){
+    if (local){ // find new paths/edges from local bitmap
+      q->from_local = 1;
+    }else{ // find new paths/edges from global bitmap
+      q->from_local = 0;
+    }
+
+    {
       u64 rows = 50;
       u64 cols = 1024;
       q->otherfname = (u8 **)malloc(rows * sizeof(u8 *));
@@ -812,8 +822,6 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det, u8 local)
       }
       q->otherNum = 0;
       q->otherNodes = (u32 *)malloc(rows * sizeof(u32));
-
-      q->from_local = 0;
 
       q->local_bitmap_size = 0;
       q->bitmap_incre = 0;
@@ -825,12 +833,6 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det, u8 local)
       q->try_times = 0;
       q->unique_rate = 1;
       q->used_time = 1;
-    }else{
-      q->otherfname = NULL;
-      q->otherNum = 0;
-      q->otherNodes = NULL;
-
-      q->from_local = 1;
     }
 
     q->first_havoc = 1;
@@ -840,6 +842,10 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det, u8 local)
 
     q->exec = 1;
     q->found = 1;
+
+    q->exec_family = 1;
+    q->found_family = 1;
+    q->disabled_raw = 0;
   }
 }
 
